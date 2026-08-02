@@ -1,0 +1,129 @@
+[
+  {
+    "code": 1,
+    "management_ds": "Falso positivo",
+    "report_classification": "Falso positivo",
+    "allowed_as_initial_proposal": true,
+    "human_review_required": true,
+    "required_evidence": [
+      "Funcionalidad o proceso legítimo que generó la detección",
+      "Relación entre la evidencia técnica y el falso positivo"
+    ]
+  },
+  {
+    "code": 2,
+    "management_ds": "No aplica gestión",
+    "report_classification": "Falso positivo",
+    "allowed_as_initial_proposal": true,
+    "human_review_required": true,
+    "required_evidence": [
+      "Confirmación de que el recurso corresponde a una impresora o cámara"
+    ]
+  },
+  {
+    "code": 3,
+    "management_ds": "Vulnerabilidad afecta la plataforma, pero no está instalado el software",
+    "report_classification": "Falso positivo",
+    "allowed_as_initial_proposal": true,
+    "human_review_required": true,
+    "required_evidence": [
+      "Inventario o validación que confirme que el software no está instalado",
+      "Evidencia de que la vulnerabilidad requiere dicho software"
+    ]
+  },
+  {
+    "code": 4,
+    "management_ds": "Vulnerabilidad no afecta esta plataforma o versión",
+    "report_classification": "Falso positivo",
+    "allowed_as_initial_proposal": true,
+    "human_review_required": true,
+    "required_evidence": [
+      "Plataforma o versión instalada",
+      "Versiones afectadas por la vulnerabilidad",
+      "Justificación de la no aplicabilidad"
+    ]
+  },
+  {
+    "code": 5,
+    "management_ds": "Gestión no corresponde a esta área",
+    "report_classification": "Pendiente por gestionar",
+    "allowed_as_initial_proposal": false,
+    "human_review_required": true,
+    "system_status": "DATA_QUALITY_REVIEW",
+    "required_evidence": [
+      "Área responsable del recurso",
+      "Área a la que se debe escalar"
+    ]
+  },
+  {
+    "code": 6,
+    "management_ds": "No se gestionó",
+    "report_classification": "Pendiente por gestionar",
+    "allowed_as_initial_proposal": false,
+    "human_review_required": true,
+    "required_evidence": [
+      "Confirmación de que la gestión no fue realizada",
+      "Motivo por el cual no se gestionó"
+    ]
+  },
+  {
+    "code": 7,
+    "management_ds": "No existe solución para esta plataforma",
+    "report_classification": "Positivo",
+    "allowed_as_initial_proposal": true,
+    "human_review_required": true,
+    "required_evidence": [
+      "Documentación que indique ausencia de solución",
+      "Estado de soporte de la plataforma o versión",
+      "Información del fabricante cuando esté disponible"
+    ]
+  },
+  {
+    "code": 8,
+    "management_ds": "Recurso sale de operación",
+    "report_classification": "Positivo",
+    "allowed_as_initial_proposal": false,
+    "human_review_required": true,
+    "required_evidence": [
+      "Confirmación de salida de operación",
+      "Fecha estimada",
+      "Proyecto o recurso que lo sustituirá"
+    ]
+  },
+  {
+    "code": 9,
+    "management_ds": "Se debe asumir el riesgo de la vulnerabilidad",
+    "report_classification": "Positivo",
+    "allowed_as_initial_proposal": true,
+    "human_review_required": true,
+    "required_evidence": [
+      "Impacto de aplicar la remediación",
+      "Afectación sobre la funcionalidad del recurso o aplicación",
+      "Responsable que debe aceptar el riesgo"
+    ]
+  },
+  {
+    "code": 10,
+    "management_ds": "Se debe evaluar la solución de la vulnerabilidad",
+    "report_classification": "Positivo",
+    "allowed_as_initial_proposal": true,
+    "human_review_required": false,
+    "required_evidence": [
+      "Solución o recomendación técnica disponible",
+      "Necesidad de pruebas, certificación o ventana de mantenimiento",
+      "Fecha o siguiente acción propuesta"
+    ]
+  },
+  {
+    "code": 11,
+    "management_ds": "Vulnerabilidad remediada",
+    "report_classification": "Positivo",
+    "allowed_as_initial_proposal": false,
+    "human_review_required": true,
+    "required_evidence": [
+      "Confirmación de implementación de la remediación",
+      "Validación posterior",
+      "Resultado de escaneo o comprobación técnica"
+    ]
+  }
+]
