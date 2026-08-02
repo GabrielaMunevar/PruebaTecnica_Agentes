@@ -6,17 +6,10 @@ from typing import Any
 from pydantic import (BaseModel,ConfigDict,Field,field_validator,model_validator,)
 
 from src.constants import OBSERVATION_MAX_LENGTH
-from src.enums import ManagementCode, WorkflowStatus
+from src.enums import (ManagementCode,ReportClassification,WorkflowStatus,)
 
 
-NULL_LIKE_VALUES = {
-    "",
-    "ND",
-    "NA",
-    "N/A",
-    "NULL",
-    "NONE",
-}
+NULL_LIKE_VALUES = {"","ND","NA","N/A","NULL","NONE",}
 
 
 def normalize_optional_text(value: Any) -> str | None:
@@ -348,6 +341,119 @@ class VulnerabilityCase(StrictModel):
             return WorkflowStatus.DATA_QUALITY_REVIEW
 
         return WorkflowStatus.READY_FOR_AI
+
+class ManagementCatalogEntry(StrictModel):
+    """
+    Representa una respuesta tipificada del catálogo corporativo.
+
+    El catálogo determina los textos oficiales, la clasificación
+    del informe y las reglas de revisión humana. Estos valores
+    no quedan bajo el control del agente.
+    """
+
+    code: ManagementCode
+
+    management_ds: str = Field(
+        min_length=1,
+        max_length=100,
+        description=(
+            "Texto normalizado que puede almacenarse "
+            "en MANAGEMENT_DS."
+        ),
+    )
+
+    report_classification: ReportClassification
+
+    allowed_as_initial_proposal: bool = Field(
+        description=(
+            "Indica si el agente puede proponer esta respuesta "
+            "durante el análisis inicial."
+        ),
+    )
+
+    human_review_required: bool = Field(
+        description=(
+            "Indica si la propuesta requiere validación humana."
+        ),
+    )
+
+    required_evidence: list[str] = Field(
+        min_length=1,
+        description=(
+            "Evidencia mínima necesaria para respaldar "
+            "esta respuesta tipificada."
+        ),
+    )
+
+    system_status: WorkflowStatus | None = Field(
+        default=None,
+        description=(
+            "Estado especial del flujo cuando la respuesta "
+            "representa una inconsistencia o bloqueo."
+        ),
+    )
+
+    @field_validator(
+        "management_ds",
+        mode="before",
+    )
+    @classmethod
+    def normalize_management_description(
+        cls,
+        value: Any,
+    ) -> str:
+        normalized_value = normalize_optional_text(value)
+
+        if normalized_value is None:
+            raise ValueError(
+                "management_ds debe contener un texto válido."
+            )
+
+        return normalized_value
+
+    @field_validator(
+        "required_evidence",
+        mode="before",
+    )
+    @classmethod
+    def normalize_required_evidence(
+        cls,
+        value: Any,
+    ) -> list[str]:
+        return normalize_text_list(value)
+
+    @model_validator(mode="after")
+    def validate_catalog_consistency(
+        self,
+    ) -> "ManagementCatalogEntry":
+        """
+        Valida relaciones generales entre los campos del catálogo.
+        """
+
+        if (
+            not self.allowed_as_initial_proposal
+            and not self.human_review_required
+        ):
+            raise ValueError(
+                "Una respuesta no permitida como propuesta inicial "
+                "debe requerir revisión humana."
+            )
+
+        allowed_special_statuses = {
+            WorkflowStatus.DATA_QUALITY_REVIEW,
+            WorkflowStatus.HUMAN_REVIEW,
+        }
+
+        if (
+            self.system_status is not None
+            and self.system_status not in allowed_special_statuses
+        ):
+            raise ValueError(
+                "system_status solo puede ser "
+                "DATA_QUALITY_REVIEW o HUMAN_REVIEW."
+            )
+
+        return self
 
 
 class FullMitigationPlan(StrictModel):
