@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import (BaseModel,ConfigDict,Field,field_validator,model_validator,)
 
 from src.constants import OBSERVATION_MAX_LENGTH
-from src.enums import (ManagementCode,ReportClassification,WorkflowStatus,)
+from src.enums import (ManagementCode, PolicyDecision, ReportClassification, WorkflowStatus,)
 
 
 NULL_LIKE_VALUES = {"","ND","NA","N/A","NULL","NONE",}
@@ -651,3 +651,46 @@ class MitigationProposal(StrictModel):
             )
 
         return normalized_value
+
+class PolicyFinding(StrictModel):
+    """Incumplimiento o condición encontrada por el Policy Gate."""
+
+    code: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
+    message: str = Field(
+        min_length=1,
+    )
+
+    field: str | None = None
+
+    @field_validator(
+        "code",
+        "message",
+        "field",
+        mode="before",
+    )
+    @classmethod
+    def normalize_finding_text(
+        cls,
+        value: Any,
+    ) -> str | None:
+        return normalize_optional_text(value)
+
+
+class PolicyEvaluation(StrictModel):
+    """Resultado estructurado de las políticas deterministas."""
+
+    decision: PolicyDecision
+
+    findings: list[PolicyFinding] = Field(
+        default_factory=list,
+    )
+
+    requires_human_review: bool = False
+
+    @property
+    def passed(self) -> bool:
+        return self.decision is PolicyDecision.PASS

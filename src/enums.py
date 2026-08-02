@@ -1,6 +1,7 @@
 from enum import Enum, IntEnum
 
 
+
 class WorkflowStatus(str, Enum):
     """Estados posibles de un caso dentro del flujo."""
 
@@ -44,3 +45,11 @@ class ManagementCode(IntEnum):
     RISK_ACCEPTANCE_REQUIRED = 9
     SOLUTION_REQUIRES_EVALUATION = 10
     REMEDIATED = 11
+
+class PolicyDecision(str, Enum):
+    """Resultado de la evaluación determinista de una propuesta."""
+
+    PASS = "PASS"
+    REVISE = "REVISE"
+    HUMAN_REVIEW = "HUMAN_REVIEW"
+    DATA_QUALITY_REVIEW = "DATA_QUALITY_REVIEW"
