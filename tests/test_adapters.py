@@ -1,6 +1,7 @@
 from copy import deepcopy
 
 from src.adapters import row_to_vulnerability_case
+from src.enums import WorkflowStatus
 
 
 def build_valid_sql_row() -> dict:
@@ -111,7 +112,7 @@ def test_valid_row_becomes_ready_for_ai() -> None:
     assert case.current_observation_ds is None
 
     assert case.detection.reoffending is True
-    assert case.initial_status == "READY_FOR_AI"
+    assert (case.initial_status is WorkflowStatus.READY_FOR_AI)
 
 
 def test_row_without_host_group_goes_to_data_quality_review() -> None:
@@ -124,7 +125,4 @@ def test_row_without_host_group_goes_to_data_quality_review() -> None:
 
     assert case.asset.internal_group is None
 
-    assert (
-        case.initial_status
-        == "DATA_QUALITY_REVIEW"
-    )
+    assert (case.initial_status is WorkflowStatus.DATA_QUALITY_REVIEW)

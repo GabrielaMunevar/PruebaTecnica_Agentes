@@ -3,7 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import (BaseModel,ConfigDict,Field,field_validator,model_validator,)
+
+from src.constants import OBSERVATION_MAX_LENGTH
+from src.enums import ManagementCode, WorkflowStatus
 
 
 NULL_LIKE_VALUES = {
@@ -36,6 +39,40 @@ def normalize_optional_text(value: Any) -> str | None:
 
     return text
 
+def normalize_text_list(value: Any) -> list[str]:
+    """
+    Normaliza una colección de textos.
+
+    - Elimina valores vacíos, ND, NA y N/A.
+    - Elimina espacios al inicio y al final.
+    - Elimina duplicados conservando el orden.
+    """
+    if value is None:
+        return []
+
+    if not isinstance(value, (list, tuple, set)):
+        raise TypeError(
+            "El valor debe ser una colección de textos."
+        )
+
+    normalized_items: list[str] = []
+    seen: set[str] = set()
+
+    for item in value:
+        normalized_item = normalize_optional_text(item)
+
+        if normalized_item is None:
+            continue
+
+        comparison_key = normalized_item.casefold()
+
+        if comparison_key in seen:
+            continue
+
+        seen.add(comparison_key)
+        normalized_items.append(normalized_item)
+
+    return normalized_items
 
 class StrictModel(BaseModel):
     """
@@ -294,20 +331,217 @@ class VulnerabilityCase(StrictModel):
         return normalize_optional_text(value)
 
     @property
-    def initial_status(self) -> str:
+    def initial_status(self) -> WorkflowStatus:
         """
         Define si el caso puede entrar al sistema multiagente.
 
-        El modelo no intenta completar información faltante:
-        enruta los casos incompletos a revisión de calidad.
+        Los problemas estructurados de datos se separan del análisis
+        técnico realizado por los agentes.
         """
         if not self.quality.required_references_ok:
-            return "DATA_QUALITY_REVIEW"
+            return WorkflowStatus.DATA_QUALITY_REVIEW
 
         if not self.quality.has_internal_group:
-            return "DATA_QUALITY_REVIEW"
+            return WorkflowStatus.DATA_QUALITY_REVIEW
 
         if not self.quality.has_qid_detail:
-            return "DATA_QUALITY_REVIEW"
+            return WorkflowStatus.DATA_QUALITY_REVIEW
 
-        return "READY_FOR_AI"
+        return WorkflowStatus.READY_FOR_AI
+
+
+class FullMitigationPlan(StrictModel):
+
+    """
+    Plan técnico completo generado por el agente planificador.
+
+    Este contenido se utiliza durante la demo y la auditoría,
+    pero no se almacena en OBSERVATION_DS porque ese campo
+    admite únicamente 500 caracteres.
+    """
+
+    summary: str = Field(
+        min_length=1,
+        description="Resumen técnico de la estrategia propuesta.",
+    )
+
+    recommended_actions: list[str] = Field(
+        min_length=1,
+        description="Acciones técnicas recomendadas.",
+    )
+
+    prerequisites: list[str] = Field(
+        default_factory=list,
+        description="Condiciones requeridas antes de aplicar el plan.",
+    )
+
+    operational_impact: str = Field(
+        min_length=1,
+        description=(
+            "Impacto esperado sobre el servicio, activo "
+            "o aplicaciones relacionadas."
+        ),
+    )
+
+    maintenance_window_required: bool = Field(
+        description=(
+            "Indica si la implementación requiere "
+            "ventana de mantenimiento."
+        ),
+    )
+
+    validation_steps: list[str] = Field(
+        min_length=1,
+        description=(
+            "Pasos para comprobar que la remediación fue exitosa."
+        ),
+    )
+
+    rollback_steps: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Pasos para revertir la implementación si se presentan fallos."
+        ),
+    )
+
+    rollback_not_applicable_reason: str | None = Field(
+        default=None,
+        description=(
+            "Explicación obligatoria cuando no se requiere rollback."
+        ),
+    )
+
+    assumptions: list[str] = Field(
+        default_factory=list,
+        description="Supuestos utilizados para elaborar el plan.",
+    )
+
+    missing_information: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Información que todavía debe confirmar el especialista."
+        ),
+    )
+
+    evidence_used: list[str] = Field(
+        min_length=1,
+        description=(
+            "Evidencias del caso utilizadas para generar el plan."
+        ),
+    )
+
+    @field_validator(
+        "recommended_actions",
+        "prerequisites",
+        "validation_steps",
+        "rollback_steps",
+        "assumptions",
+        "missing_information",
+        "evidence_used",
+        mode="before",
+    )
+    @classmethod
+    def normalize_list_fields(
+        cls,
+        value: Any,
+    ) -> list[str]:
+        return normalize_text_list(value)
+
+    @field_validator(
+        "rollback_not_applicable_reason",
+        mode="before",
+    )
+    @classmethod
+    def normalize_optional_rollback_reason(
+        cls,
+        value: Any,
+    ) -> str | None:
+        return normalize_optional_text(value)
+
+    @model_validator(mode="after")
+    def validate_rollback_definition(
+        self,
+    ) -> "FullMitigationPlan":
+        """
+        Todo plan debe incluir rollback o explicar por qué no aplica.
+
+        Esta regla se valida en código y no depende únicamente
+        de que el prompt se lo solicite al modelo.
+        """
+        if (
+            not self.rollback_steps
+            and self.rollback_not_applicable_reason is None
+        ):
+            raise ValueError(
+                "El plan debe incluir pasos de rollback "
+                "o justificar por qué el rollback no aplica."
+            )
+
+        return self
+
+class MitigationProposal(StrictModel):
+    """
+    Propuesta estructurada producida por el agente planificador.
+
+    El agente selecciona el código de gestión, pero no genera
+    el texto oficial de MANAGEMENT_DS ni la clasificación
+    del informe. Esos valores se recuperan posteriormente
+    desde management_catalog.json.
+    """
+
+    vulnerability_id: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
+    management_code: ManagementCode = Field(
+        description=(
+            "Código de la respuesta tipificada propuesta."
+        ),
+    )
+
+    classification_reason: str = Field(
+        min_length=1,
+        description=(
+            "Justificación técnica de la respuesta tipificada."
+        ),
+    )
+
+    observation_ds: str = Field(
+        min_length=1,
+        max_length=OBSERVATION_MAX_LENGTH,
+        description=(
+            "Resumen de máximo 500 caracteres que podría "
+            "almacenarse en STG_INTERNAL_VULNERABILITIES."
+        ),
+    )
+
+    full_plan: FullMitigationPlan
+
+    confidence: float = Field(
+        ge=0,
+        le=1,
+        description=(
+            "Confianza declarada por el agente entre 0 y 1. "
+            "No reemplaza las validaciones del auditor."
+        ),
+    )
+
+    @field_validator(
+        "classification_reason",
+        "observation_ds",
+        mode="before",
+    )
+    @classmethod
+    def normalize_required_text(
+        cls,
+        value: Any,
+    ) -> str:
+        normalized_value = normalize_optional_text(value)
+
+        if normalized_value is None:
+            raise ValueError(
+                "El campo debe contener información útil."
+            )
+
+        return normalized_value
