@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any, Protocol
-
 from pydantic import ValidationError
 
 from src.catalog import ManagementCatalog
@@ -16,22 +14,7 @@ from src.models import (
     VulnerabilityCase,
 )
 from src.prompts import build_planner_messages
-
-
-class StructuredModel(Protocol):
-    """
-    Contrato mínimo requerido por el agente planificador.
-
-    Tanto un modelo real de LangChain como un modelo falso
-    utilizado en pruebas pueden implementar este protocolo.
-    """
-
-    def invoke(
-        self,
-        input: Any,
-        **kwargs: Any,
-    ) -> Any:
-        ...
+from src.protocols import StructuredModel
 
 
 class MitigationPlanner:
@@ -58,7 +41,8 @@ class MitigationPlanner:
         """
         Genera una propuesta estructurada para un caso válido.
 
-        Los problemas de datos se detienen antes de invocar el LLM.
+        Los problemas de calidad se detienen antes de invocar
+        el modelo de lenguaje.
         """
 
         if (
@@ -71,8 +55,8 @@ class MitigationPlanner:
             )
 
         messages = build_planner_messages(
-            case,
-            self._catalog,
+            case=case,
+            catalog=self._catalog,
         )
 
         try:
@@ -92,7 +76,6 @@ class MitigationPlanner:
                 MitigationProposal,
             ):
                 proposal = raw_response
-
             else:
                 proposal = (
                     MitigationProposal.model_validate(

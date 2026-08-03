@@ -155,7 +155,7 @@ def test_missing_host_group_goes_to_data_quality_review() -> None:
     assert evaluation.requires_human_review is True
 
 
-def test_disallowed_initial_code_goes_to_human_review() -> None:
+def test_disallowed_initial_code_requires_revision() -> None:
     evaluation = evaluate_mitigation_proposal(
         build_case(),
         build_proposal(
@@ -168,10 +168,9 @@ def test_disallowed_initial_code_goes_to_human_review() -> None:
 
     assert (
         evaluation.decision
-        is PolicyDecision.HUMAN_REVIEW
+        is PolicyDecision.REVISE
     )
-    assert evaluation.requires_human_review is True
-
+    assert evaluation.requires_human_review is False
 
 def test_management_for_another_area_goes_to_data_quality() -> None:
     evaluation = evaluate_mitigation_proposal(
@@ -188,3 +187,20 @@ def test_management_for_another_area_goes_to_data_quality() -> None:
         evaluation.decision
         is PolicyDecision.DATA_QUALITY_REVIEW
     )
+
+def test_disallowed_initial_code_requires_revision() -> None:
+    evaluation = evaluate_mitigation_proposal(
+        build_case(),
+        build_proposal(
+            management_code=(
+                ManagementCode.RESOURCE_DECOMMISSIONING
+            )
+        ),
+        load_management_catalog(),
+    )
+
+    assert (
+        evaluation.decision
+        is PolicyDecision.REVISE
+    )
+    assert evaluation.requires_human_review is False

@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import (BaseModel,ConfigDict,Field,field_validator,model_validator,)
 
 from src.constants import OBSERVATION_MAX_LENGTH
-from src.enums import (ManagementCode, PolicyDecision, ReportClassification, WorkflowStatus,)
+from src.enums import (AuditVerdict,ManagementCode, PolicyDecision, ReportClassification, WorkflowStatus,)
 
 
 NULL_LIKE_VALUES = {"","ND","NA","N/A","NULL","NONE",}
@@ -694,3 +694,158 @@ class PolicyEvaluation(StrictModel):
     @property
     def passed(self) -> bool:
         return self.decision is PolicyDecision.PASS
+
+class AuditFinding(StrictModel):
+    """
+    Hallazgo semántico o técnico identificado por el auditor.
+    """
+
+    code: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
+    message: str = Field(
+        min_length=1,
+    )
+
+    field: str | None = None
+
+    blocking: bool = Field(
+        default=True,
+        description=(
+            "Indica si el hallazgo impide aprobar el plan."
+        ),
+    )
+
+    @field_validator(
+        "code",
+        "message",
+        "field",
+        mode="before",
+    )
+    @classmethod
+    def normalize_audit_finding(
+        cls,
+        value: Any,
+    ) -> str | None:
+        return normalize_optional_text(value)
+
+
+class AuditResult(StrictModel):
+    """
+    Resultado estructurado del agente auditor.
+
+    No determina por sí solo el estado final del workflow.
+    LangGraph combinará este resultado con las políticas,
+    el catálogo y el número de intentos.
+    """
+
+    vulnerability_id: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
+    verdict: AuditVerdict
+
+    summary: str = Field(
+        min_length=1,
+        description="Conclusión general de la auditoría.",
+    )
+
+    findings: list[AuditFinding] = Field(
+        default_factory=list,
+    )
+
+    evidence_sufficient: bool
+
+    missing_information: list[str] = Field(
+        default_factory=list,
+    )
+
+    feedback_for_planner: str | None = Field(
+        default=None,
+        description=(
+            "Instrucción concreta para corregir la propuesta."
+        ),
+    )
+
+    confidence: float = Field(
+        ge=0,
+        le=1,
+    )
+
+    @field_validator(
+        "missing_information",
+        mode="before",
+    )
+    @classmethod
+    def normalize_missing_information(
+        cls,
+        value: Any,
+    ) -> list[str]:
+        return normalize_text_list(value)
+
+    @field_validator(
+        "feedback_for_planner",
+        mode="before",
+    )
+    @classmethod
+    def normalize_feedback(
+        cls,
+        value: Any,
+    ) -> str | None:
+        return normalize_optional_text(value)
+
+    @model_validator(mode="after")
+    def validate_verdict_consistency(
+        self,
+    ) -> "AuditResult":
+        blocking_findings = any(
+            finding.blocking
+            for finding in self.findings
+        )
+
+        if self.verdict is AuditVerdict.APPROVED:
+            if blocking_findings:
+                raise ValueError(
+                    "Un resultado aprobado no puede contener "
+                    "hallazgos bloqueantes."
+                )
+
+            if not self.evidence_sufficient:
+                raise ValueError(
+                    "Un resultado aprobado debe contar con "
+                    "evidencia suficiente."
+                )
+
+            if self.feedback_for_planner is not None:
+                raise ValueError(
+                    "Un resultado aprobado no debe incluir "
+                    "retroalimentación de corrección."
+                )
+
+        if self.verdict is AuditVerdict.REVISE:
+            if not self.findings:
+                raise ValueError(
+                    "Un resultado REVISE debe incluir "
+                    "al menos un hallazgo."
+                )
+
+            if self.feedback_for_planner is None:
+                raise ValueError(
+                    "Un resultado REVISE debe incluir "
+                    "retroalimentación para el planificador."
+                )
+
+        if self.verdict is AuditVerdict.HUMAN_REVIEW:
+            if (
+                not self.findings
+                and not self.missing_information
+            ):
+                raise ValueError(
+                    "HUMAN_REVIEW debe explicar los hallazgos "
+                    "o la información faltante."
+                )
+
+        return self

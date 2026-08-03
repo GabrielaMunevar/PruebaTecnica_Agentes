@@ -18,36 +18,7 @@ from src.models import (
     MitigationProposal,
 )
 from tests.test_adapters import build_valid_sql_row
-
-
-class FakeStructuredModel:
-    """
-    Modelo controlado para probar el agente sin consumir API.
-    """
-
-    def __init__(
-        self,
-        *,
-        response: Any = None,
-        error: Exception | None = None,
-    ) -> None:
-        self.response = response
-        self.error = error
-        self.called = False
-        self.last_input: Any = None
-
-    def invoke(
-        self,
-        input: Any,
-        **kwargs: Any,
-    ) -> Any:
-        self.called = True
-        self.last_input = input
-
-        if self.error is not None:
-            raise self.error
-
-        return self.response
+from tests.fakes import FakeStructuredModel
 
 
 def build_valid_proposal() -> MitigationProposal:

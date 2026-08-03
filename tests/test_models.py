@@ -6,7 +6,17 @@ from src.models import (
     FullMitigationPlan,
     MitigationProposal,
 )
+from src.enums import (
+    AuditVerdict,
+    ManagementCode,
+)
 
+from src.models import (
+    AuditFinding,
+    AuditResult,
+    FullMitigationPlan,
+    MitigationProposal,
+)
 
 def build_valid_full_plan() -> FullMitigationPlan:
     return FullMitigationPlan(
@@ -144,3 +154,46 @@ def test_plan_accepts_rollback_not_applicable_reason() -> None:
 
     assert plan.rollback_steps == []
     assert plan.rollback_not_applicable_reason is not None
+
+def test_revise_audit_requires_feedback() -> None:
+    with pytest.raises(ValidationError):
+        AuditResult(
+            vulnerability_id="DEMO-SQL-91721",
+            verdict=AuditVerdict.REVISE,
+            summary="El plan necesita ajustes.",
+            findings=[
+                AuditFinding(
+                    code="VALIDATION_INCOMPLETE",
+                    message=(
+                        "La validación no comprueba "
+                        "la remediación."
+                    ),
+                )
+            ],
+            evidence_sufficient=True,
+            missing_information=[],
+            feedback_for_planner=None,
+            confidence=0.85,
+        )
+
+
+def test_approved_audit_rejects_blocking_findings() -> None:
+    with pytest.raises(ValidationError):
+        AuditResult(
+            vulnerability_id="DEMO-SQL-91721",
+            verdict=AuditVerdict.APPROVED,
+            summary="El plan fue aprobado.",
+            findings=[
+                AuditFinding(
+                    code="UNSUPPORTED_ACTION",
+                    message=(
+                        "Existe una acción no sustentada."
+                    ),
+                    blocking=True,
+                )
+            ],
+            evidence_sufficient=True,
+            missing_information=[],
+            feedback_for_planner=None,
+            confidence=0.90,
+        )

@@ -86,6 +86,9 @@ def evaluate_mitigation_proposal(
             )
         )
 
+        # El código 5 representa una inconsistencia:
+        # el caso está en STG_INTERNAL, pero el agente considera
+        # que la gestión corresponde a otra área.
         if (
             catalog_entry.system_status
             is WorkflowStatus.DATA_QUALITY_REVIEW
@@ -96,10 +99,12 @@ def evaluate_mitigation_proposal(
                 requires_human_review=True,
             )
 
+        # Los demás códigos no permitidos inicialmente deben
+        # devolverse al planificador para que los corrija.
         return PolicyEvaluation(
-            decision=PolicyDecision.HUMAN_REVIEW,
+            decision=PolicyDecision.REVISE,
             findings=findings,
-            requires_human_review=True,
+            requires_human_review=False,
         )
 
     # -------------------------------------------------------------
