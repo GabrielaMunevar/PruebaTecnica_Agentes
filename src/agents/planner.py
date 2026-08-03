@@ -21,9 +21,6 @@ class MitigationPlanner:
     """
     Agente responsable de proponer la clasificación inicial
     y el plan técnico de mitigación.
-
-    La clase no conoce el proveedor concreto del modelo.
-    Recibe una dependencia que cumple StructuredModel.
     """
 
     def __init__(
@@ -37,12 +34,15 @@ class MitigationPlanner:
     def generate(
         self,
         case: VulnerabilityCase,
+        *,
+        previous_proposal: MitigationProposal | None = None,
+        revision_feedback: str | None = None,
     ) -> MitigationProposal:
         """
-        Genera una propuesta estructurada para un caso válido.
+        Genera una propuesta estructurada.
 
-        Los problemas de calidad se detienen antes de invocar
-        el modelo de lenguaje.
+        Cuando recibe una propuesta anterior y retroalimentación,
+        solicita al modelo una versión corregida.
         """
 
         if (
@@ -57,6 +57,8 @@ class MitigationPlanner:
         messages = build_planner_messages(
             case=case,
             catalog=self._catalog,
+            previous_proposal=previous_proposal,
+            revision_feedback=revision_feedback,
         )
 
         try:

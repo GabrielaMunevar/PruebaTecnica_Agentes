@@ -36,6 +36,9 @@ Debes:
 8. Incluir acciones, prerrequisitos, impacto, validación y rollback.
 9. Elaborar observation_ds con máximo 500 caracteres.
 10. Mantener el mismo vulnerability_id recibido.
+11. Cuando recibas una propuesta anterior y retroalimentación,
+    debes corregir específicamente los hallazgos indicados sin
+    perder la información válida del plan anterior.
 
 La salida debe cumplir estrictamente el esquema MitigationProposal.
 """.strip()
@@ -65,15 +68,17 @@ def _build_allowed_management_options(
 def build_planner_messages(
     case: VulnerabilityCase,
     catalog: ManagementCatalog,
+    previous_proposal: MitigationProposal | None = None,
+    revision_feedback: str | None = None,
 ) -> list[BaseMessage]:
     """
-    Construye los mensajes del agente sin ejecutar el modelo.
+    Construye los mensajes del agente planificador.
 
-    Mantener esta función separada facilita revisar, probar
-    y versionar el prompt independientemente del agente.
+    Cuando se recibe retroalimentación, incorpora la propuesta
+    anterior para que el agente pueda corregirla.
     """
 
-    prompt_payload = {
+    prompt_payload: dict[str, object] = {
         "task": (
             "Analizar el caso y generar una propuesta "
             "estructurada de mitigación."
@@ -85,6 +90,23 @@ def build_planner_messages(
             mode="json",
         ),
     }
+
+    if (
+        previous_proposal is not None
+        or revision_feedback is not None
+    ):
+        prompt_payload["revision_context"] = {
+            "instruction": (
+                "Corrige la propuesta anterior atendiendo "
+                "todos los hallazgos indicados."
+            ),
+            "previous_proposal": (
+                previous_proposal.model_dump(mode="json")
+                if previous_proposal is not None
+                else None
+            ),
+            "feedback": revision_feedback,
+        }
 
     return [
         SystemMessage(
