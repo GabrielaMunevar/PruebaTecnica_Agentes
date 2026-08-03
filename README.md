@@ -58,6 +58,61 @@ flowchart TD
     H -. Error controlado .-> N
 ```
 
+### Diagrama de arquitectura
+
+Representación visual de los agentes, sus roles, flujo de mensajes y herramientas utilizadas.
+
+```mermaid
+flowchart LR
+  subgraph Fuentes[Fuentes internas]
+    SQL[Vista SQL enriquecida]
+    CAT[data/management_catalog.json]
+  end
+
+  subgraph Orquestacion[Orquestación]
+    ADP[Adaptador\nRol: transformar fila SQL]
+    LG[LangGraph\nRol: estado, ruteo, reintentos]
+    PG[Policy Gate\nRol: guardrails deterministas]
+  end
+
+  subgraph Agentes[Agentes IA]
+    PLN[Agente Planificador\nEntrada: contexto sanitizado + catálogo permitido\nSalida: MitigationProposal]
+    AUD[Agente Auditor\nEntrada: contexto sanitizado + propuesta + evaluación\nSalida: AuditResult]
+  end
+
+  subgraph Herramientas[Herramientas de soporte]
+    ACTX[src/ai_context.py\nMinimización de datos]
+    PRM[src/prompts.py\nConstrucción de mensajes]
+    MDL[Model Factory / proveedor LLM\nOpenAI u otro backend]
+  end
+
+  SQL --> ADP
+  ADP --> LG
+  CAT --> PG
+  CAT --> PRM
+
+  LG --> ACTX
+  ACTX --> PRM
+
+  LG -->|Mensaje de planificación| PLN
+  PRM --> PLN
+  PLN -->|MitigationProposal| LG
+
+  LG --> PG
+  PG -->|PASS| LG
+  PG -->|REVISE| LG
+  PG -->|DATA_QUALITY_REVIEW| LG
+
+  LG -->|Mensaje de auditoría| AUD
+  PRM --> AUD
+  AUD -->|AuditResult| LG
+
+  PLN --- MDL
+  AUD --- MDL
+
+  LG --> RES[WorkflowResult\nAPPROVED_DRAFT / HUMAN_REVIEW / PROCESSING_ERROR]
+```
+
 ### Componentes principales
 
 | Componente | Responsabilidad |
@@ -224,7 +279,7 @@ La demostración determinista y las pruebas automatizadas no requieren credencia
 
 ```powershell
 git clone <URL_DEL_REPOSITORIO>
-cd agente_prueba_tecnica
+cd PruebaTecnica_Agentes
 ```
 
 ### 2. Crear un entorno virtual
@@ -528,21 +583,6 @@ Estas limitaciones fueron aceptadas para mantener el alcance de la prueba técni
 - Exposición mediante API o interfaz web.
 - Procesamiento por lotes desde la vista SQL.
 - Integración con el proceso de gestión de cambios.
-
----
-
-## Convención de commits
-
-El proyecto utiliza Conventional Commits con prefijos en inglés y mensajes en español:
-
-```text
-feat(graph): orquestar flujo multiagente de vulnerabilidades
-fix(adapter): corregir normalización de valores nulos
-test(policies): cubrir rutas de revisión humana
-docs(readme): documentar instalación y ejecución
-refactor(models): reorganizar contratos de dominio
-chore(deps): actualizar dependencias
-```
 
 ---
 
