@@ -170,15 +170,10 @@ def evaluate_mitigation_proposal(
     # -------------------------------------------------------------
     # 8. Algunas respuestas son válidas, pero requieren una persona
     # -------------------------------------------------------------
-    if catalog_entry.human_review_required:
-        return PolicyEvaluation(
-            decision=PolicyDecision.HUMAN_REVIEW,
-            findings=[],
-            requires_human_review=True,
-        )
-
     return PolicyEvaluation(
-        decision=PolicyDecision.PASS,
-        findings=[],
-        requires_human_review=False,
-    )
+    decision=PolicyDecision.PASS,
+    findings=[],
+    requires_human_review=(
+        catalog_entry.human_review_required
+    ),
+)

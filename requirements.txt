@@ -1,0 +1,4 @@
+pydantic>=2.12,<3
+langchain>=1.2,<2
+langgraph>=1.0,<2
+python-dotenv>=1,<2
