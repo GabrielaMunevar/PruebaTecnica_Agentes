@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from src.ai_context import build_ai_case_context
 import json
 
 from langchain_core.messages import (
@@ -86,9 +86,7 @@ def build_planner_messages(
         "allowed_management_options": (
             _build_allowed_management_options(catalog)
         ),
-        "vulnerability_case": case.model_dump(
-            mode="json",
-        ),
+        "vulnerability_case": build_ai_case_context(case),
     }
 
     if (
@@ -158,6 +156,28 @@ La decisión requiere inventario adicional, confirmación del
 especialista, aceptación de riesgo, autorización del negocio
 u otra información que no está disponible.
 
+CONTRATO ESTRICTO DE CAMPOS SEGÚN VEREDICTO:
+
+Cuando el veredicto sea APPROVED:
+- evidence_sufficient debe ser true.
+- No puede haber hallazgos con blocking=true.
+- feedback_for_planner debe ser null.
+- Las recomendaciones menores se expresan en summary o
+  como hallazgos con blocking=false; nunca en feedback_for_planner.
+
+Cuando el veredicto sea REVISE:
+- Debe existir al menos un hallazgo en findings.
+- feedback_for_planner debe contener instrucciones concretas
+  para corregir la propuesta.
+
+Cuando el veredicto sea HUMAN_REVIEW:
+- Deben existir hallazgos en findings o entradas en
+  missing_information que justifiquen la revisión.
+
+Antes de responder, comprueba que la combinación de campos
+cumple el contrato descrito. Una respuesta APPROVED con
+feedback_for_planner distinto de null es inválida.
+
 La salida debe cumplir estrictamente el esquema AuditResult.
 """.strip()
 
@@ -185,8 +205,8 @@ def build_auditor_messages(
                 mode="json",
             )
         ),
-        "vulnerability_case": case.model_dump(
-            mode="json",
+        "vulnerability_case": build_ai_case_context(
+            case
         ),
         "mitigation_proposal": proposal.model_dump(
             mode="json",

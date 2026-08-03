@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import logging
+
+from langchain_core.messages import HumanMessage
 from pydantic import ValidationError
 
 from src.catalog import ManagementCatalog
@@ -21,6 +24,16 @@ from src.models import (
 )
 from src.prompts import build_auditor_messages
 from src.protocols import StructuredModel
+
+logger = logging.getLogger(__name__)
+
+_CORRECTION_INSTRUCTION = (
+    "La respuesta anterior incumplió el contrato AuditResult. "
+    "Regenera el resultado desde cero. "
+    "Si verdict es APPROVED, feedback_for_planner debe ser null. "
+    "Si verdict es REVISE, debe incluir findings y feedback_for_planner. "
+    "No cambies el vulnerability_id."
+)
 
 
 class MitigationAuditor:
@@ -86,6 +99,36 @@ class MitigationAuditor:
             raw_response = self._model.invoke(
                 messages
             )
+
+        except ValidationError as first_exc:
+            logger.warning(
+                "Reintentando auditoría por salida estructurada "
+                "inválida para %r.",
+                case.vulnerability_id,
+            )
+
+            corrective_messages = messages + [
+                HumanMessage(content=_CORRECTION_INSTRUCTION)
+            ]
+
+            try:
+                raw_response = self._model.invoke(
+                    corrective_messages
+                )
+
+            except ValidationError as second_exc:
+                raise StructuredOutputError(
+                    "La respuesta del agente auditor "
+                    "no cumple el contrato AuditResult "
+                    "tras el reintento correctivo."
+                ) from first_exc
+
+            except Exception as exc:
+                raise AgentExecutionError(
+                    "El agente auditor no pudo evaluar "
+                    f"la propuesta {case.vulnerability_id!r} "
+                    "durante el reintento."
+                ) from exc
 
         except Exception as exc:
             raise AgentExecutionError(

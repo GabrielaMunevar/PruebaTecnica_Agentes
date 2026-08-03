@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+import json
 
 from src.adapters import row_to_vulnerability_case
 from src.agents.planner import MitigationPlanner
@@ -87,21 +88,66 @@ def test_planner_returns_structured_proposal() -> None:
     proposal = planner.generate(case)
 
     assert model.called is True
+
     assert (
         proposal.management_code
         is ManagementCode.SOLUTION_REQUIRES_EVALUATION
     )
+
     assert (
         proposal.vulnerability_id
         == case.vulnerability_id
     )
 
-    # Comprueba que el prompt contiene los mensajes esperados.
+    # El planificador debe recibir dos mensajes:
+    # 1. SystemMessage
+    # 2. HumanMessage con el contexto JSON.
     assert len(model.last_input) == 2
-    assert (
-        case.vulnerability_id
-        in model.last_input[1].content
+
+    human_message = model.last_input[1]
+
+    assert isinstance(
+        human_message.content,
+        str,
     )
+
+    prompt_payload = json.loads(
+        human_message.content
+    )
+
+    ai_case_context = prompt_payload[
+        "vulnerability_case"
+    ]
+
+    # El identificador lógico se conserva para correlacionar
+    # la respuesta con el caso procesado.
+    assert (
+        ai_case_context["vulnerability_id"]
+        == case.vulnerability_id
+    )
+
+    # Datos técnicos necesarios para el análisis.
+    assert (
+        ai_case_context["vulnerability"]["qid"]
+        == case.vulnerability.qid
+    )
+
+    assert (
+        ai_case_context["technical"]["operating_system"]
+        == case.technical.operating_system
+    )
+
+    assert (
+        ai_case_context["asset"]["environment"]
+        == case.asset.environment
+    )
+
+    # Datos del host que no deben enviarse al modelo.
+    assert "host_id" not in ai_case_context["asset"]
+    assert "ip" not in ai_case_context["asset"]
+    assert "dns" not in ai_case_context["asset"]
+    assert "netbios" not in ai_case_context["asset"]
+    assert "internal_group" not in ai_case_context["asset"]
 
 
 def test_planner_does_not_call_model_for_invalid_case() -> None:
