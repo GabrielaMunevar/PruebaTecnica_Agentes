@@ -15,3 +15,16 @@ class StructuredModel(Protocol):
         **kwargs: Any,
     ) -> Any:
         ...
+
+
+class InvokableWorkflow(Protocol):
+    """
+    Contrato mínimo requerido para ejecutar un workflow.
+    """
+
+    def invoke(
+        self,
+        input: Any,
+        **kwargs: Any,
+    ) -> Any:
+        ...

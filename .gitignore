@@ -24,8 +24,7 @@ htmlcov/
 *.db
 *.sqlite
 *.sqlite3
-
-# Logs
+data/local/# Logs
 *.log
 logs/
 
@@ -37,3 +36,7 @@ logs/
 .DS_Store
 Thumbs.db
 '@ | Set-Content .gitignore
+
+
+# Datos locales o corporativos utilizados en pruebas
+data/local/

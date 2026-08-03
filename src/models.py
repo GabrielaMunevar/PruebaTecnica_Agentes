@@ -849,3 +849,181 @@ class AuditResult(StrictModel):
                 )
 
         return self
+
+class WorkflowResult(StrictModel):
+    """
+    Resultado final y estable del análisis de una vulnerabilidad.
+
+    Oculta los detalles internos de LangGraph y expone únicamente
+    la información necesaria para la aplicación, la demostración
+    y futuras integraciones.
+    """
+
+    vulnerability_id: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
+    final_status: WorkflowStatus
+
+    attempt_count: int = Field(
+        ge=0,
+    )
+
+    max_attempts: int = Field(
+        ge=1,
+    )
+
+    requires_human_review: bool
+
+    group_ds: str | None = Field(
+        default=None,
+        max_length=200,
+        description=(
+            "Grupo interno obtenido exclusivamente "
+            "del contexto del host."
+        ),
+    )
+
+    management_code: ManagementCode | None = None
+
+    management_ds: str | None = Field(
+        default=None,
+        max_length=100,
+        description=(
+            "Texto oficial recuperado desde el catálogo."
+        ),
+    )
+
+    report_classification: (
+        ReportClassification | None
+    ) = None
+
+    observation_ds: str | None = Field(
+        default=None,
+        max_length=OBSERVATION_MAX_LENGTH,
+    )
+
+    proposal: MitigationProposal | None = None
+
+    policy_evaluation: PolicyEvaluation | None = None
+
+    audit_result: AuditResult | None = None
+
+    revision_feedback: str | None = None
+
+    error_stage: str | None = None
+
+    error_message: str | None = None
+
+    @field_validator(
+        "group_ds",
+        "management_ds",
+        "observation_ds",
+        "revision_feedback",
+        "error_stage",
+        "error_message",
+        mode="before",
+    )
+    @classmethod
+    def normalize_optional_result_text(
+        cls,
+        value: Any,
+    ) -> str | None:
+        return normalize_optional_text(value)
+
+    @model_validator(mode="after")
+    def validate_result_consistency(
+        self,
+    ) -> "WorkflowResult":
+        """
+        Impide construir resultados finales contradictorios.
+        """
+
+        if (
+            self.final_status
+            is WorkflowStatus.PROCESSING_ERROR
+        ):
+            if (
+                self.error_stage is None
+                or self.error_message is None
+            ):
+                raise ValueError(
+                    "PROCESSING_ERROR debe indicar "
+                    "la etapa y el mensaje del error."
+                )
+
+        if (
+            self.final_status
+            is WorkflowStatus.APPROVED_DRAFT
+        ):
+            if self.proposal is None:
+                raise ValueError(
+                    "APPROVED_DRAFT debe incluir "
+                    "una propuesta de mitigación."
+                )
+
+            if self.audit_result is None:
+                raise ValueError(
+                    "APPROVED_DRAFT debe incluir "
+                    "el resultado de la auditoría."
+                )
+
+            if (
+                self.audit_result.verdict
+                is not AuditVerdict.APPROVED
+            ):
+                raise ValueError(
+                    "APPROVED_DRAFT requiere que el "
+                    "auditor haya aprobado la propuesta."
+                )
+
+        if self.proposal is None:
+            controlled_fields = (
+                self.management_code,
+                self.management_ds,
+                self.report_classification,
+                self.observation_ds,
+            )
+
+            if any(
+                value is not None
+                for value in controlled_fields
+            ):
+                raise ValueError(
+                    "No pueden existir campos de gestión "
+                    "sin una propuesta asociada."
+                )
+
+        else:
+            if (
+                self.management_code
+                is not self.proposal.management_code
+            ):
+                raise ValueError(
+                    "management_code no coincide con "
+                    "la propuesta del planificador."
+                )
+
+            if self.management_ds is None:
+                raise ValueError(
+                    "Una propuesta debe resolverse contra "
+                    "el texto oficial del catálogo."
+                )
+
+            if self.report_classification is None:
+                raise ValueError(
+                    "Una propuesta debe incluir su "
+                    "clasificación oficial."
+                )
+
+            if (
+                self.observation_ds
+                != self.proposal.observation_ds
+            ):
+                raise ValueError(
+                    "observation_ds no coincide con "
+                    "la propuesta validada."
+                )
+
+        return self

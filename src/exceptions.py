@@ -28,3 +28,9 @@ class AgentExecutionError(ApplicationError):
 
 class StructuredOutputError(AgentExecutionError):
     """La respuesta del modelo no cumple el esquema esperado."""
+
+class WorkflowExecutionError(ApplicationError):
+    """
+    Error inesperado durante la ejecución o transformación
+    del resultado del workflow.
+    """
